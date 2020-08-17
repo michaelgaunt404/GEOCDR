@@ -1,0 +1,112 @@
+    
+    #addresses~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    #input~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # addressInput <- reactive({
+    #     
+    #     validate(
+    #         need(input$file1 != "", "Please select a data set to geocode.")
+    #     )
+    # 
+    #     df <- read.csv(input$file1$datapath,
+    #                    header = input$header,
+    #                    sep = input$sep,
+    #                    quote = input$quote, stringsAsFactors = F) %>% 
+    #         remove_constant() 
+    #     
+    #     df %>%
+    #         set_colnames("searchText") %>%  
+    #         mutate(recId = rownames(.) %>%  
+    #                    as.numeric()) %>% 
+    #         write.csv("./data/overwrite_test.txt")
+    #     
+    #     if(input$disp == "head") {
+    #         return(head(df))
+    #     }
+    #     else {
+    #         return(df)
+    #     }
+    # })
+    # 
+    # output$contents <- DT::renderDataTable({
+    #     addressInput() %>%  
+    #         datatable()
+    # })
+    # 
+    # 
+    # #geocode~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # geocodeInput <- reactive({
+    #     validate(
+    #         need(input$password != "", "Please provide HERE API key and press `GeoCode it!` button once data has been loaded.")
+    #     )
+    #     
+    #     req(input$go)
+    #     req(addressInput())
+    #     
+    #     isolate(input$password) %>%  
+    #         set_key()
+    #     
+    #     data = "./data/12k_address_short.txt"
+    #     data = "./data/12k_address_fulladdresses_short.txt"
+    #     key = isolate(input$password)
+    #     
+    #     email = "mike.gaunt.404@gmail.com"
+    #     print(key, email)
+    #     request_curl = paste0(cURL = 'curl -X POST -H "Content-Type: text/plain" --data-binary @', 
+    #                           data, 
+    #                           ' "https://batch.geocoder.ls.hereapi.com/6.2/jobs?&apiKey=', 
+    #                           key, 
+    #                           '&action=run&header=true&inDelim=\t&outDelim=,&outCols=recId,latitude,longitude,locationLabel&outputcombined=true&mailTo=', 
+    #                           email)
+    #     
+    #     batchout = system(request_curl, intern = T)
+    # 
+    #     
+    #     
+    #     
+    #     
+    #     geocode(addressInput()[,1], autocomplete = FALSE)
+    # })
+    # 
+    # output$geocoded <- DT::renderDataTable({
+    #     geocodeInput() %>%
+    #         datatable(extensions = 'Buttons',
+    #                   options = list(
+    #                       paging = TRUE,
+    #                       searching = TRUE,
+    #                       fixedColumns = TRUE,
+    #                       autoWidth = TRUE,
+    #                       ordering = TRUE,
+    #                       dom = 'tB',
+    #                       buttons = c('copy', 'csv', 'excel')),
+    #                   class = "display")
+    # })
+    # 
+    # 
+    # #mapping~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # output$mapSelected <- renderLeaflet({
+    # 
+    #     GeoCoded_Records = geocodeInput() %>%
+    #         mutate(coord = geometry %>%  as.character(),
+    #                color = is.na(street))
+    # 
+    #     tt = tabyl(GeoCoded_Records, color)
+    # 
+    #     tmap_leaflet(tm_shape(GeoCoded_Records) +
+    #                      tm_dots(col = "color",
+    #                              id = "address",
+    #                              alpha = .7, size = 1, scale = .5, shape = 21,
+    #                              border.lwd = 1, border.col = "black", border.alpha = 1,
+    #                              popup.vars = c("Lat/Long" = "coord"))) %>%
+    #         addLogo("https://jeroenooms.github.io/images/banana.gif",
+    #                 position = "bottomleft",
+    #                 offset.x = 5,
+    #                 offset.y = 40,
+    #                 width = 100,
+    #                 height = 100)
+    # })
+    # 
+    # renderM
+    

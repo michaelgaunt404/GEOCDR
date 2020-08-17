@@ -1,0 +1,540 @@
+# library(shiny)
+# library(janitor)
+# library(hereR)
+# library(DT)
+# library(tmap)
+# library(leaflet)
+# library(shinycssloaders)
+
+source("global.R")
+
+
+# options(shiny.maxRequestSize = 15*1024^2)
+
+# Define UI for data upload app ----
+ui <- fluidPage(
+    
+    # Top Row~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    fluidRow(style = "height:50px; border-bottom: 1px solid black",
+             column(4,
+                    style = "border-right: 1px solid white",
+                    # span(img(src = "wsp_logo.png", height = "100%"), 
+                    #      # "Dashboard Dev Demo",
+                    #      style="color: #9239F6;font-size:30px")
+                    #      # style="font-size:30px")
+                    img(src = "wsp_logo.png", height = "49px")
+                    # ,
+                    # img(src = "dig_logo.png", height = "49px")
+             ), 
+             column(2, offset = 5,
+                    wellPanel(style = "height:49px", textOutput("currentTime"))
+                    ) ),
+    
+    fluidRow(style = "border-top: 1px solid white;height:10px;"),
+
+    # App title ----
+    titlePanel("GeocodeR"),
+    tabsetPanel(type = "pills",
+    tabPanel("Addresses",
+                # Sidebar layout~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                sidebarLayout(
+                    sidebarPanel(
+                        # Input: Select a file ----
+                        fileInput("file1", "Choose CSV File",
+                                  multiple = TRUE,
+                                  accept = c("text/csv",
+                                             "text/comma-separated-values,text/plain",
+                                             ".csv")),
+                        
+                        # Horizontal line ----
+                        tags$hr(style="border-color: purple;"),
+                        
+                        # Input: Checkbox if file has header ----
+                        checkboxInput("header", "Header", TRUE),
+                        
+                        # Input: Select separator ----
+                        radioButtons("sep", "Separator",
+                                     choices = c(Comma = ",",
+                                                 Semicolon = ";",
+                                                 Tab = "\t"),
+                                     selected = ","),
+                        
+                        # Input: Select quotes ----
+                        radioButtons("quote", "Quote",
+                                     choices = c(None = "",
+                                                 "Double Quote" = '"',
+                                                 "Single Quote" = "'"),
+                                     selected = '"'),
+                        
+                        
+                        # Input: Select number of rows to display ----
+                        radioButtons("disp", "Display",
+                                     choices = c(Head = "head",
+                                                 All = "all"),
+                                     selected = "all"),
+                        
+                        # Horizontal line ----
+                        tags$hr(style="border-color: purple;"),
+                        textInput("email", "Your personal email:", 
+                                      placeholder = "Enter email..." ),
+                        passwordInput("password", "HERE API key:", 
+                                      placeholder = "Enter key..." ),
+                        passwordInput("digger", "DIG Team key:", 
+                                      placeholder = "Enter key..." ),
+                        actionButton("go", "GeoCode it!")
+                        
+                    ),
+                    
+                    # Main panel for displaying outputs ----
+                    mainPanel(
+                        tabsetPanel(type = "tabs",
+                                    tabPanel("Uploaded Data",
+                                             DT::dataTableOutput("contents") %>% 
+                                                 withSpinner(color="#0dc5c1")),
+                                    tabPanel("Geocode Data",
+                                             DT::dataTableOutput("geocoded") %>% 
+                                                 withSpinner(color="#0dc5c1")),
+                                    tabPanel("Geocoded Map",
+                                             leafletOutput("mapSelected", height = 700) %>% 
+                                                 withSpinner(color="#0dc5c1")))
+                        
+                    )
+                )
+                
+    ),
+    tabPanel("Coordinates", 
+             # Sidebar layout~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             sidebarLayout(
+                 # Sidebar panel for inputs ----
+                 sidebarPanel(
+                     
+                     # Input: Select a file ----
+                     fileInput("file_coord", "Choose CSV File",
+                               multiple = TRUE,
+                               accept = c("text/csv",
+                                          "text/comma-separated-values,text/plain",
+                                          ".csv")),
+                     
+                     # Horizontal line ----
+                     tags$hr(style="border-color: purple;"),
+                     
+                     # Input: Checkbox if file has header ----
+                     checkboxInput("header_coord", "Header", TRUE),
+                     
+                     # Input: Select separator ----
+                     radioButtons("sep_coord", "Separator",
+                                  choices = c(Comma = ",",
+                                              Semicolon = ";",
+                                              Tab = "\t"),
+                                  selected = ","),
+                     
+                     # Input: Select quotes ----
+                     radioButtons("quote_coord", "Quote",
+                                  choices = c(None = "",
+                                              "Double Quote" = '"',
+                                              "Single Quote" = "'"),
+                                  selected = '"'),
+                     
+                     
+                     # Input: Select number of rows to display ----
+                     radioButtons("disp_coord", "Display",
+                                  choices = c(Head = "head",
+                                              All = "all"),
+                                  selected = "all"),
+                     
+                     # Horizontal line ----
+                     tags$hr(style="border-color: purple;"),
+                     
+                     passwordInput("password_coord", "Set personal HERE API key:"),
+                     actionButton("go_coord", "GeoCode it!")
+                     
+                 ),
+                 
+                 # Main panel for displaying outputs ----
+                 mainPanel(
+                     tabsetPanel(type = "tabs",
+                                 tabPanel("Uploaded Data",
+                                          DT::dataTableOutput("contents_coord")%>% 
+                                              withSpinner(color="#0dc5c1")),
+                                 tabPanel("Geocode Data",
+                                          DT::dataTableOutput("geocoded_coord")%>% 
+                                              withSpinner(color="#0dc5c1")),
+                                 tabPanel("Geocoded Map",
+                                          leafletOutput("mapSelected_coord", height = 700)%>% 
+                                              withSpinner(color="#0dc5c1")))
+                     
+                 )
+             )         
+    ))
+)
+
+# Define server logic to read selected file ----
+server <- function(input, output, session) {
+    time_start = Sys.time()
+    
+    output$currentTime <- renderText({
+        invalidateLater(1000, session)
+        
+        td = (as.numeric(Sys.time()-time_start)%/% 1) %>% 
+            seconds_to_period()
+        paste("Time on App: ", paste(td@hour, minute(td), second(td), sep = ":"))
+    })
+    
+    observeEvent("", {
+        showModal(modalDialog(
+            includeHTML("./www/intro.html"),
+            size = "l",
+            easyClose = TRUE,
+        ))
+    })
+    
+    #addresses~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    #input~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # addressInput <- reactive({
+    #     
+    #     validate(
+    #         need(input$file1 != "", "Please select a data set to geocode.")
+    #     )
+    # 
+    #     df <- read.csv(input$file1$datapath,
+    #                    header = input$header,
+    #                    sep = input$sep,
+    #                    quote = input$quote, stringsAsFactors = F) %>% 
+    #         remove_constant() 
+    #     
+    #     df %>%
+    #         set_colnames("searchText") %>%  
+    #         mutate(recId = rownames(.) %>%  
+    #                    as.numeric()) %>% 
+    #         write.csv("./data/overwrite_test.txt")
+    #     
+    #     if(input$disp == "head") {
+    #         return(head(df))
+    #     }
+    #     else {
+    #         return(df)
+    #     }
+    # })
+    # 
+    # output$contents <- DT::renderDataTable({
+    #     addressInput() %>%  
+    #         datatable()
+    # })
+    # 
+    # 
+    # #geocode~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # geocodeInput <- reactive({
+    #     validate(
+    #         need(input$password != "", "Please provide HERE API key and press `GeoCode it!` button once data has been loaded.")
+    #     )
+    #     
+    #     req(input$go)
+    #     req(addressInput())
+    #     
+    #     isolate(input$password) %>%  
+    #         set_key()
+    #     
+    #     data = "./data/12k_address_short.txt"
+    #     data = "./data/12k_address_fulladdresses_short.txt"
+    #     key = isolate(input$password)
+    #     
+    #     email = "mike.gaunt.404@gmail.com"
+    #     print(key, email)
+    #     request_curl = paste0(cURL = 'curl -X POST -H "Content-Type: text/plain" --data-binary @', 
+    #                           data, 
+    #                           ' "https://batch.geocoder.ls.hereapi.com/6.2/jobs?&apiKey=', 
+    #                           key, 
+    #                           '&action=run&header=true&inDelim=\t&outDelim=,&outCols=recId,latitude,longitude,locationLabel&outputcombined=true&mailTo=', 
+    #                           email)
+    #     
+    #     batchout = system(request_curl, intern = T)
+    # 
+    #     
+    #     
+    #     
+    #     
+    #     geocode(addressInput()[,1], autocomplete = FALSE)
+    # })
+    # 
+    # output$geocoded <- DT::renderDataTable({
+    #     geocodeInput() %>%  
+    #         datatable(extensions = 'Buttons',
+    #                   options = list(
+    #                       paging = TRUE,
+    #                       searching = TRUE,
+    #                       fixedColumns = TRUE,
+    #                       autoWidth = TRUE,
+    #                       ordering = TRUE,
+    #                       dom = 'tB',
+    #                       buttons = c('copy', 'csv', 'excel')),
+    #                   class = "display")
+    # })
+    # 
+    # 
+    # #mapping~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # output$mapSelected <- renderLeaflet({
+    #     
+    #     GeoCoded_Records = geocodeInput() %>% 
+    #         mutate(coord = geometry %>%  as.character(), 
+    #                color = is.na(street))
+    #     
+    #     tt = tabyl(GeoCoded_Records, color)
+    #     
+    #     tmap_leaflet(tm_shape(GeoCoded_Records) + 
+    #                      tm_dots(col = "color",
+    #                              id = "address",
+    #                              alpha = .7, size = 1, scale = .5, shape = 21, 
+    #                              border.lwd = 1, border.col = "black", border.alpha = 1,
+    #                              popup.vars = c("Lat/Long" = "coord"))) %>%  
+    #         addLogo("https://jeroenooms.github.io/images/banana.gif",
+    #                 position = "bottomleft",
+    #                 offset.x = 5,
+    #                 offset.y = 40,
+    #                 width = 100,
+    #                 height = 100)
+    # })
+    
+    
+    
+    #addresses~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    #input~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #gets data from user
+    #cleans, displays, and prepares/saves data for batch command
+    addressInput <- reactive({
+        validate(
+            need(input$file1 != "", "Please select a data set to geocode.")
+        )
+        df = read.csv(input$file1$datapath,
+                       header = input$header,
+                       sep = input$sep,
+                       quote = input$quote, stringsAsFactors = F) %>% 
+            remove_constant()
+        
+        df
+        # 
+        # if(input$disp == "head") {
+        #     return(head(df))
+        # }
+        # else {
+        #     return(df)
+        # }
+    })
+    
+    output$contents <- DT::renderDataTable({
+        addressInput() %>%  
+            datatable()
+    })
+    
+    #data needs to be just single address column
+    #changes colname and makes recId column 
+    #changes to text
+    addresses %>%
+        set_colnames("searchText") %>%
+        mutate(recId = rownames(.) %>%
+                   as.numeric()) %>%
+        write.table("./data/overwrite_testtt.txt", 
+                    row.names = F, 
+                    quote = F, 
+                    sep = "|")
+    
+    #input~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #uses key to run 
+    #makes request and runs it
+    
+    addressInput <- reactive({
+        validate(
+            need(input$file1 != "", "Please select a data set to geocode.")
+        )
+        
+        request_curl = paste0(cURL = 'curl -X POST -H "Content-Type: text/plain" --data-binary @', 
+                              "./data/overwrite_test.txt", 
+                              ' "https://batch.geocoder.ls.hereapi.com/6.2/jobs?&apiKey=', 
+                              key, 
+                              '&action=run&header=true&inDelim=\t&outDelim=,&outCols=recId,latitude,longitude,locationLabel&outputcombined=true&mailTo=', 
+                              email)
+        
+        batchout = system(request_curl, intern = T)
+        print(batchout)
+        
+        
+    })
+    
+    
+    
+    
+ 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    #coordinates~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    #input~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    addressInput_coord <- reactive({
+        validate(
+            need(input$file_coord != "", "Please select a data set to geocode.")
+        )
+        # req(input$file_coord)
+        df <- read.csv(input$file_coord$datapath,
+                       header = input$header_coord,
+                       sep = input$sep_coord,
+                       quote = input$quote_coord, stringsAsFactors = F) %>% 
+            remove_constant() %>%  
+            clean_names() %>% 
+            dplyr::select(contains(c("lon", "lat")), everything()) %>% 
+            rename(longitude = 1, latitude = 2) %>%  
+            filter(!is.na(longitude) & !is.na(longitude)) %>%  
+            st_as_sf(., coords = c("longitude", "latitude"), crs = st_crs(4326)) %>%  
+            mutate(ID = rownames(.)) 
+        
+        if(input$disp_coord == "head") {
+            return(head(df))
+        }
+        else {
+            return(df)
+        }
+    })
+    
+    output$contents_coord <- DT::renderDataTable({
+        addressInput_coord() %>%  
+            datatable()
+    })
+    
+    
+    
+    #geocode~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    geocodeInput_coord <- reactive({
+        validate(
+            need(input$password_coord != "", "Please provide HERE API key and press `GeoCode it!` button once data has been loaded.")
+        )
+        
+        req(input$go_coord)
+        req(addressInput_coord())
+        
+        isolate(input$password_coord) %>%  
+            set_key()
+        
+        reverse_geocode(addressInput_coord(), results = 1, landmarks = FALSE, url_only = FALSE) 
+    })
+    
+    output$geocoded_coord <- DT::renderDataTable({
+        geocodeInput_coord() %>%  
+            datatable(extensions = 'Buttons',
+                      options = list(
+                          paging = TRUE,
+                          searching = TRUE,
+                          fixedColumns = TRUE,
+                          autoWidth = TRUE,
+                          ordering = TRUE,
+                          dom = 'tB',
+                          buttons = c('copy', 'csv', 'excel')),
+                      class = "display")
+    })
+    
+    
+    #mapping~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    output$mapSelected_coord <- renderLeaflet({
+        GeoCoded_Coordinates = geocodeInput_coord()  %>% 
+            mutate(coord = geometry %>%  as.character())
+        
+        Input_Coordinates = addressInput_coord() %>% 
+            mutate(coord = geometry %>%  as.character())
+        
+        
+        if(nrow(Input_Coordinates)>1000){
+            GeoCoded_Coordinates = GeoCoded_Coordinates %>%  sample_n(1000)
+            Input_Coordinates = Input_Coordinates  %>% 
+                filter(ID %in% unique(GeoCoded_Coordinates$id))
+            
+        }
+        
+        map = tm_shape(Input_Coordinates) +
+            tm_dots(col = "#28ADA8",
+                    id = "",
+                    alpha = .7, size = 1, scale = .5, shape = 21,
+                    border.lwd = 1, border.col = "black", border.alpha = 1,
+                    popup.vars = c("Parent Point ID" = "ID", 
+                                   "Lat/Long" = "coord")) +
+            tm_shape(GeoCoded_Coordinates) + 
+            tm_dots(id = "label", 
+                    col = "#7A3A9A",
+                    alpha = .7, size = 1, scale = .5, shape = 21, 
+                    border.lwd = 1, border.col = "black", border.alpha = 1, 
+                    popup.vars = c("Parent Point ID" = "id",
+                                   "Sub-Point ID" = "rank",
+                                   "Dist. to input coord." = "distance",
+                                   "Geocode Level" = "level",
+                                   "Lat/Long" = "coord"))
+        
+        map %>%  tmap_leaflet()
+        
+    })
+    
+    
+}
+
+
+
+I
+
+# Run the app ----
+shinyApp(ui, server)

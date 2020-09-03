@@ -1,6 +1,6 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-# This is the global script for the GeocodeR shiny app.
+# This is the global script for the GeocodR shiny app.
 #
 # By: mike gaunt, michael.gaunt@wsp.com
 #
@@ -23,9 +23,11 @@ library(DT)
 library(sf)
 library(tmap)
 library(leaflet)
-library(lubridate)
-library(mapview)
-library(shinyalert)
+# library(lubridate)
+# library(mapview)
+# library(shinyalert)
+library(XML)
+library(rintrojs)
 
 tmap::tmap_mode("view")
 
